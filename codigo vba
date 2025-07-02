@@ -1,0 +1,72 @@
+import os import tkinter as tk from tkinter import filedialog, messagebox, ttk from datetime import datetime import glob import win32com.client  # Outlook automation
+
+--- CONFIGURABLE ---
+
+PDF_ROOT_DIR = "./tasaciones"  # Ruta base de los archivos PDF
+
+--- FUNCIONES AUXILIARES ---
+
+def encontrar_pdf_mas_reciente(ruta_base): pdfs = glob.glob(os.path.join(ruta_base, "**", "*.pdf"), recursive=True) if not pdfs: return None pdfs.sort(key=os.path.getmtime, reverse=True) return pdfs[0]
+
+def crear_borrador_mail(para, cc, de, asunto, cuerpo, adjunto, enviar_automatico): try: outlook = win32com.client.Dispatch("Outlook.Application") mail = outlook.CreateItem(0) mail.To = para mail.CC = cc mail.Subject = asunto mail.Body = cuerpo if adjunto: mail.Attachments.Add(adjunto)
+
+if enviar_automatico:
+        mail.Send()
+    else:
+        mail.Display()
+
+except Exception as e:
+    messagebox.showerror("Error al enviar correo", str(e))
+
+--- GUI PRINCIPAL ---
+
+class App(tk.Tk): def init(self): super().init() self.title("Asignación de Peritos") self.geometry("500x350")
+
+tk.Label(self, text="Correo Para:").pack()
+    self.entry_para = tk.Entry(self, width=60)
+    self.entry_para.pack()
+
+    tk.Label(self, text="Correo CC:").pack()
+    self.entry_cc = tk.Entry(self, width=60)
+    self.entry_cc.pack()
+
+    tk.Label(self, text="Correo Desde:").pack()
+    self.entry_de = tk.Entry(self, width=60)
+    self.entry_de.pack()
+
+    tk.Label(self, text="Modo de envío:").pack(pady=(10,0))
+    self.combo_modo = ttk.Combobox(self, values=["Enviar automáticamente", "Solo generar borradores"])
+    self.combo_modo.current(1)
+    self.combo_modo.pack()
+
+    tk.Button(self, text="Seleccionar Carpeta y Enviar", command=self.procesar_envio).pack(pady=20)
+
+def procesar_envio(self):
+    ruta = filedialog.askdirectory(title="Selecciona la carpeta raíz de PDFs")
+    if not ruta:
+        return
+
+    pdf_reciente = encontrar_pdf_mas_reciente(ruta)
+
+    if not pdf_reciente:
+        if not messagebox.askyesno("Sin PDF", "No se encontró ningún PDF. ¿Deseas continuar sin adjunto?"):
+            return
+
+    confirm = messagebox.askyesno("Confirmar", f"¿Deseas enviar el correo con el PDF más reciente?\n\n{pdf_reciente}")
+    if not confirm:
+        return
+
+    crear_borrador_mail(
+        self.entry_para.get(),
+        self.entry_cc.get(),
+        self.entry_de.get(),
+        asunto="Asignación de perito",
+        cuerpo="Adjunto la tasación más reciente para su revisión.",
+        adjunto=pdf_reciente,
+        enviar_automatico=self.combo_modo.get() == "Enviar automáticamente"
+    )
+
+    messagebox.showinfo("Listo", "Proceso completado.")
+
+if name == "main": app = App() app.mainloop()
+
